@@ -1,141 +1,177 @@
-import { useState } from 'react';
-import { Upload } from 'lucide-react';
-import { analyzeImage } from '../utils/openaiService';
+import React, { useState } from 'react';
+import { Upload, Trash2 } from 'lucide-react';
+import { analyzeMultipleImages } from '../utils/openaiService';
+import chubbLogo from '../assets/chubb-logo.png';
 
-const ImageAnalysisApp = () => {
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [llmResponse, setLlmResponse] = useState('');
+function MultiImageAccidentAnalysisApp() {
+  const [images, setImages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [analysisType, setAnalysisType] = useState('accident');
 
-  const handleImageUpload = async (event) => {
-    const file = event.target.files[0];
+  const handleImageUpload = (event) => {
+    const newFiles = event.target.files;
+    if (newFiles) {
+      const newImagesArray = Array.from(newFiles).map((file) => ({
+        file,
+        imageUrl: URL.createObjectURL(file),
+        vehiclesInvolved: 'Not analyzed',
+        accidentDetails: 'Not analyzed',
+        surroundings: 'Not analyzed',
+        condition: 'Not analyzed',
+        overallAssesment: 'Not analyzed',
+        analysisStatus: 'pending',
+      }));
+
+      setImages((prevImages) => [...prevImages, ...newImagesArray]);
+    }
+  };
+
+  const removeImage = (indexToRemove) => {
+    setImages((prevImages) =>
+      prevImages.filter((_, index) => index !== indexToRemove)
+    );
+  };
+
+  const analyzeImages = async () => {
+    if (images.length === 0) {
+      setError('Please upload at least one image');
+      return;
+    }
+
+    setIsLoading(true);
     setError(null);
-    
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        setError('Please upload an image file');
-        return;
-      }
 
-      setIsLoading(true);
-      setSelectedImage(URL.createObjectURL(file));
-      
-      try {
-        const analysis = await analyzeImage(file, analysisType);
-        setLlmResponse(analysis);
-      } catch (error) {
-        console.error('Error processing image:', error);
-        setError('Error analyzing image. Please try again.');
-        setLlmResponse('');
-      } finally {
-        setIsLoading(false);
-      }
+    try {
+      const updatedImages = await analyzeMultipleImages(images);
+      setImages(updatedImages);
+    } catch (err) {
+      setError('Error analyzing images. Please try again.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
+    <div className="min-h-screen flex flex-col bg-gray-100">
+      {/* Error Notification */}
       {error && (
         <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
         </div>
       )}
-      
-      {!selectedImage ? (
-        <div className="flex items-center justify-center h-[80vh]">
-          <div className="bg-white rounded-lg shadow-lg w-96">
-            <div className="flex flex-col items-center justify-center h-full p-6 space-y-6">
-              {/* Analysis Type Selector */}
-              <div className="w-full">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Analysis Type
-                </label>
-                <select
-                  value={analysisType}
-                  onChange={(e) => setAnalysisType(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="accident">Accident Analysis</option>
-                  <option value="prescription">Prescription Analysis</option>
-                </select>
-              </div>
 
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                id="image-upload"
-              />
-              <button
-                onClick={() => document.getElementById('image-upload').click()}
-                className="cursor-pointer flex flex-col items-center gap-4 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <Upload size={48} className="text-gray-400" />
-                Select Image
-              </button>
-              <p className="text-sm text-gray-500">
-                Upload an image to analyze
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-7xl mx-auto">
-          <div className="bg-white rounded-lg shadow-lg p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Input Image</h2>
-              <select
-                value={analysisType}
-                onChange={(e) => setAnalysisType(e.target.value)}
-                className="p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="accident">Accident Analysis</option>
-                <option value="prescription">Prescription Analysis</option>
-              </select>
-            </div>
-            <div className="aspect-video relative">
-              <img
-                src={selectedImage}
-                alt="Uploaded"
-                className="w-full h-full object-contain"
-              />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-lg p-4">
-            <h2 className="text-xl font-semibold mb-4">Analysis Output</h2>
-            <div className="aspect-video overflow-auto">
-              {isLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                </div>
-              ) : (
-                <div className="prose max-w-none">
-                  <p className="text-gray-700 whitespace-pre-wrap">{llmResponse}</p>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="col-span-1 md:col-span-2 flex justify-center">
+      {/* Header Section with Logo */}
+      <header className="bg-white shadow-md p-4 flex justify-center items-center">
+        <img
+          src={chubbLogo} // Replace with the path to your logo file
+          alt="App Logo"
+          className="h-12"
+        />
+      </header>
+
+
+      {/* Main Content Section */}
+      <div className="flex-1 max-w-7xl mx-auto p-8">
+        {/* Upload and Analyze Buttons */}
+        <div className="mb-6 flex items-center justify-between">
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageUpload}
+            className="hidden"
+            id="multi-image-upload"
+          />
+          <button
+            onClick={() => document.getElementById('multi-image-upload').click()}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            <Upload size={20} /> Upload Images
+          </button>
+          {images.length > 0 && (
             <button
-              onClick={() => {
-                setSelectedImage(null);
-                setLlmResponse('');
-                setError(null);
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onClick={analyzeImages}
+              disabled={isLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50"
             >
-              Upload New Image
+              {isLoading ? 'Analyzing...' : 'Analyze Images'}
             </button>
-          </div>
+          )}
         </div>
-      )}
+
+        {/* Image Analysis Table */}
+        {images.length > 0 && (
+          <div className="bg-white rounded-lg shadow-lg overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-100 text-left">
+                  <th className="p-4">Image</th>
+                  <th className="p-4">Vehicles Involved</th>
+                  <th className="p-4">Accident Details</th>
+                  <th className="p-4">Surroundings</th>
+                  <th className="p-4">Condition</th>
+                  <th className="p-4">Overall Assesment</th>
+                  <th className="p-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {images.map((image, index) => (
+                  <tr key={index} className="border-b">
+                    <td className="p-4">
+                      <img
+                        src={image.imageUrl}
+                        alt={`Uploaded ${index + 1}`}
+                        className="w-24 h-24 object-cover rounded"
+                      />
+                    </td>
+                    <td className="p-4">
+                      {isLoading && image.analysisStatus === 'pending'
+                        ? 'Analyzing...'
+                        : image.vehiclesInvolved}
+                    </td>
+                    <td className="p-4">
+                      {isLoading && image.analysisStatus === 'pending'
+                        ? 'Analyzing...'
+                        : image.accidentDetails}
+                    </td>
+                    <td className="p-4">
+                      {isLoading && image.analysisStatus === 'pending'
+                        ? 'Analyzing...'
+                        : image.surroundings}
+                    </td>
+                    <td className="p-4">
+                      {isLoading && image.analysisStatus === 'pending'
+                        ? 'Analyzing...'
+                        : image.condition}
+                    </td>
+                    <td className="p-4">
+                      {isLoading && image.analysisStatus === 'pending'
+                        ? 'Analyzing...'
+                        : image.overallAssesment}
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => removeImage(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Footer Section */}
+      <footer className="bg-gray-800 text-white text-center py-4">
+        Powered by <span className="font-bold">RandomWalkAI</span>
+      </footer>
     </div>
   );
-};
+}
 
-export default ImageAnalysisApp;
+export default MultiImageAccidentAnalysisApp;
